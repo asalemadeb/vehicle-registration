@@ -1,0 +1,14 @@
+db:
+  host: "![XlupVBRJjcUmDw0HCreE9g==]"
+  port: "![i7vL7XrL1eM=]"
+  users: "![A2Xoc3qMudY=]"
+  password: "![+hjSJdhDDOLzvR3V6jrC/INjNjSH7KALAg1tBwufiL0=]"
+  database: "![1Hamb4Tsgt8p5Zea1mk+dA==]"
+
+http:
+  path: "![ApRlYVIaFgE=]"
+  port: "![LayS8qjDpo8=]"
+  
+resp:
+  message: "Hello this is Craft Class 43 property file - Dev ENV"  
+  

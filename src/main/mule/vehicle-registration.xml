@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+    <http:listener-config name="vehicle-registration-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="${secure::http.port}" />
+    </http:listener-config>
+    <apikit:config name="vehicle-registration-config" api="resource::4e6c3e9a-ce93-4563-b13d-c3aafda8a94b:vehicle-registration:1.0.0:raml:zip:vehicle-registration.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <db:config name="Database_Config" doc:name="Database Config" doc:id="de543903-c9cb-4b8f-ba89-3ee4212fb841" >
+		<db:my-sql-connection host="${secure::db.host}" port="${secure::db.port}" user="${secure::db.users}" password="${secure::db.password}" database="${secure::db.database}" />
+	</db:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="0a5c4304-af53-47e7-99ab-428f4612e608" file="${env}.yaml" />
+	<global-property doc:name="Global Property" doc:id="d8d46cb6-1830-45c3-b381-28fc170a4f2a" name="env" value="prod" />
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="f5750dcb-5065-46e7-9cda-b451419bec8b" file="${env}.yaml" key="HelloMule" >
+		<secure-properties:encrypt algorithm="Blowfish" />
+	</secure-properties:config>
+	<configuration-properties doc:name="Configuration properties" doc:id="f4120e67-c571-4ca0-b56a-05dbd109e4a3" file="${env}.yaml" />
+	<flow name="vehicle-registration-main">
+        <http:listener config-ref="vehicle-registration-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="vehicle-registration-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="vehicle-registration-console">
+        <http:listener config-ref="vehicle-registration-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="vehicle-registration-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="delete:\vehicles\(VehicleID):vehicle-registration-config">
+        <db:delete doc:name="Delete" doc:id="47ebf60c-5e03-4b16-b8cd-933f23703e09" config-ref="Database_Config">
+			<db:sql ><![CDATA[DELETE FROM vehicles
+WHERE VehicleID = :VehicleID]]></db:sql>
+			<db:input-parameters ><![CDATA[#["VehicleID": attributes.uriParams.VehicleID]]]></db:input-parameters>
+		</db:delete>
+		<ee:transform doc:name="Transform Message">
+            <ee:message>
+                <ee:set-payload><![CDATA[
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+		<choice doc:name="Choice" doc:id="6aa83d71-87c1-44a3-9f3d-1ad195005d98" >
+			<when expression="#[payload.size() == 0]">
+				<ee:transform doc:name="Transform Message" doc:id="c30cc60e-5563-42ab-a5cb-6213e8e32b10" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "message": "Vehicle not found",
+  
+	"Read From PP": p("resp.message")
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform doc:name="Vehicle Deleted">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Vehicle deleted successfully",
+	"Read From PP": p("resp.message")}
+
+]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+			</otherwise>
+		</choice>
+    </flow>
+<flow name="get:\vehicles:vehicle-registration-config">
+    
+    <db:select doc:name="Select Vehicle" config-ref="Database_Config">
+        <db:sql><![CDATA[SELECT * FROM vehicles WHERE VehicleID = :VehicleID]]></db:sql>
+        <db:input-parameters><![CDATA[#[{
+	"VehicleID": attributes.queryParams.VehicleID
+}]]]></db:input-parameters>
+    </db:select>
+		<ee:transform doc:name="Transform Response">
+    <ee:message>
+        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+if (sizeOf(payload) > 0) {
+    "message": "Vehicle Retrieved Successfully!",
+    "status": "SUCCESS",
+    "Read From PP": p("resp.message")
+} else {
+
+    "message": "Vehicle not found!",
+    "status": "NOT_FOUND",
+    "Read From PP": p("resp.message")
+}
+
+]]></ee:set-payload>
+    </ee:message>
+</ee:transform>
+</flow>
+    <flow name="post:\vehicles:application\json:vehicle-registration-config">
+        <db:insert doc:name="Insert" doc:id="71a03c78-ddce-42fa-969f-cda5229eacf3" config-ref="Database_Config">
+			<db:sql ><![CDATA[INSERT INTO vehicles (VehicleID, OwnerName, VehicleNumber, VehicleType, Status)
+VALUES (:VehicleID, :OwnerName, :VehicleNumber, :VehicleType, :Status)]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+  "VehicleID": payload.VehicleID,
+  "OwnerName": payload.OwnerName,
+  "VehicleNumber": payload.VehicleNumber,
+  "VehicleType": payload.VehicleType,
+  "Status": payload.Status
+}]]]></db:input-parameters>
+		</db:insert>
+		<ee:transform doc:name="Vehicle registered">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  message: "Vehicle registered successfully",
+  
+	"Read From PP": p("resp.message")
+
+  }]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>
